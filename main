@@ -1,0 +1,64 @@
+function updateGoogleSlidesContent() {
+  // Get the active Google Sheets spreadsheet
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Sheet1');
+  
+  // Get all data from the sheet
+  var data = sheet.getDataRange().getValues();
+  
+  // Open the Google Slides presentation by its ID
+  var presentationId = ''; // Replace with your Google Slides ID
+  var slides = SlidesApp.openById(presentationId);
+  
+  // Loop through each row in the Google Sheets data
+  for (var i = 1; i < data.length; i++) { // Start at 1 to skip the header row
+    var slideNumber = data[i][0]; // Slide number
+    var objectId = data[i][1]; // Object ID (text box or image ID)
+    var value = data[i][2]; // The value to insert (text or image link)
+    
+    Logger.log('Processing Slide ' + slideNumber + ', Object ID: ' + objectId + ', Value: ' + value);
+    
+    // Ensure slideNumber is a valid integer
+    if (Number.isInteger(slideNumber)) {
+      // Get the specific slide
+      var slide = slides.getSlides()[slideNumber - 1]; // Subtract 1 because arrays are zero-indexed
+      
+      // Get the page element by ID
+      var pageElement = slide.getPageElementById(objectId);
+      
+      if (pageElement) {
+        if (pageElement.getPageElementType() === SlidesApp.PageElementType.SHAPE) {
+          // It's a text box, update the text
+          var textBox = pageElement.asShape().getText();
+          if (textBox) {
+            textBox.setText(value);
+            Logger.log('Text updated to: ' + value);
+          } else {
+            Logger.log('Text box exists but does not contain text.');
+          }
+        } else if (pageElement.getPageElementType() === SlidesApp.PageElementType.IMAGE) {
+          // It's an image, replace the image
+          var fileId = extractDriveFileId(value);
+          var imageBlob = DriveApp.getFileById(fileId).getBlob();
+          pageElement.asImage().replace(imageBlob);
+          Logger.log('Image replaced with file from: ' + value);
+        } else {
+          Logger.log('Unsupported page element type for Object ID: ' + objectId);
+        }
+      } else {
+        Logger.log('Page element not found: ' + objectId + ' on Slide ' + slideNumber);
+      }
+    } else {
+      Logger.log('Invalid slide number: ' + slideNumber);
+    }
+  }
+}
+
+// Helper function to extract the file ID from the Google Drive link
+function extractDriveFileId(url) {
+  var fileId = '';
+  var match = url.match(/[-\w]{25,}/);
+  if (match) {
+    fileId = match[0];
+  }
+  return fileId;
+}
